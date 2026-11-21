@@ -2,8 +2,11 @@ import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import { fileURLToPath } from 'url';
 import { ControllerState, ControllerProfile } from '@universal-gamepad/shared-protocol';
 import { DEFAULT_PROFILES } from '@universal-gamepad/controller-core';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const MACOS_KEY_CODES: Record<string, number> = {
   // Arrow keys

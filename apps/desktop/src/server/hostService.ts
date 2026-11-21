@@ -1,7 +1,10 @@
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import express from 'express';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { WebSocketServer, WebSocket } from 'ws';
 import QRCode from 'qrcode';
 import {
