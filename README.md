@@ -13,10 +13,12 @@ Universal Gamepad is a high-performance, cross-platform wireless game controller
 - **Ultra-Compact Binary Protocol:** 20-byte binary packet streaming at 60Hz–120Hz via WebSockets (`<1.5ms` RTT over 5GHz Wi-Fi).
 - **Dead-Man Failsafe Watchdog:** 250ms activity watchdog prevents stuck buttons on screen lock, incoming phone calls, or network drops.
 - **Acoustic Tactile Feedback:** Web Audio impulse synthesizer simulates physical tactile button clicks on iOS devices where `navigator.vibrate` is blocked.
-- **Dual Driver Architecture:**
-  - **Mode A (Windows ViGEm):** True virtual Xbox 360 controller recognized by Steam, GamePass, and PC games.
-  - **Mode B (macOS & Windows):** Native input synthesis (WASD, Arrows, Space, Shift, Mouse Look) with custom profiles.
-- **Live Input Tester & Dashboard:** Real-time visual controller tester, live latency monitor (RTT ms, packet count), network interface selector, and one-time QR / 4-digit PIN pairing.
+- **Hardware-Level Driver Architecture:**
+  - **macOS (DriverKit Mode A):** True virtual Xbox Wireless Controller recognized directly by macOS System Settings > Game Controllers, Apple Arcade, Steam, and `hardwaretester.com`.
+  - **Windows (ViGEm Mode A):** True virtual Xbox 360 controller recognized by Steam, GamePass, and PC games.
+  - **Mode B (macOS & Windows):** Zero-install input synthesis (WASD, Arrows, Space, Shift) for legacy web & retro games.
+- **Dedicated Mouse Touchpad & True Analog RS:** Pop-out `🖱️ MOUSE PAD` provides full mouse navigation, while the Right Stick (`RS`) acts strictly as a genuine 360° controller thumbstick for camera look and aiming.
+- **Live Input Tester & Dashboard:** Real-time visual controller tester with Gamepad-Tester grid toggle, live latency monitor (RTT ms, packet count), network interface selector, and one-time QR / 4-digit PIN pairing.
 
 ---
 
