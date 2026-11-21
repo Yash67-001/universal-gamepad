@@ -23,6 +23,7 @@ import { SessionManager, PairingSession } from './session';
 import { DriverManager, DriverStatusReport } from './driverManager';
 import { InputEngine } from './inputEngine';
 import { TransportManager, TransportStateReport } from './transportManager';
+import { GAMEPAD_TESTER_BRIDGE_SCRIPT } from './bridgeScript';
 
 export interface DesktopDashboardState {
   status: ConnectionStatus;
@@ -151,6 +152,13 @@ export class HostService {
       }
       this.handlePhoneDisconnect();
       res.json({ success: true });
+    });
+
+    // Serve Universal Gamepad Browser Bridge for Gamepad Tester & Web Games
+    this.app.get('/bridge.js', (req, res) => {
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.send(GAMEPAD_TESTER_BRIDGE_SCRIPT);
     });
 
     // Serve Desktop Dashboard from /dashboard

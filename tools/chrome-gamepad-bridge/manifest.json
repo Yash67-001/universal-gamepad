@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Universal Gamepad - Gamepad Tester Bridge",
+  "version": "1.0.0",
+  "description": "Seamlessly bridges your Universal Gamepad smartphone controller into Gamepad Tester and HTML5 browser games.",
+  "permissions": [],
+  "host_permissions": [
+    "*://*.hardwaretester.com/*",
+    "*://*.gamepad-tester.com/*",
+    "*://hardwaretester.com/*",
+    "*://gamepad-tester.com/*",
+    "*://gamepad-tester.net/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.hardwaretester.com/*",
+        "*://*.gamepad-tester.com/*",
+        "*://hardwaretester.com/*",
+        "*://gamepad-tester.com/*",
+        "*://gamepad-tester.net/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
