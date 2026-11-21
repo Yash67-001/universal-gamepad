@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Universal Gamepad - Gamepad Tester Bridge",
-  "version": "1.0.0",
-  "description": "Seamlessly bridges your Universal Gamepad smartphone controller into Gamepad Tester and HTML5 browser games.",
-  "permissions": [],
+  "version": "1.1.0",
+  "description": "Seamlessly bridges your Universal Gamepad smartphone controller into Gamepad Tester and HTML5 browser games with zero mixed-content blocks.",
+  "permissions": ["tabs"],
   "host_permissions": [
     "*://*.hardwaretester.com/*",
     "*://*.gamepad-tester.com/*",
     "*://hardwaretester.com/*",
     "*://gamepad-tester.com/*",
-    "*://gamepad-tester.net/*"
+    "*://gamepad-tester.net/*",
+    "http://127.0.0.1:8080/*",
+    "http://localhost:8080/*",
+    "ws://127.0.0.1:8080/*",
+    "ws://localhost:8080/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
@@ -21,8 +28,13 @@
         "*://gamepad-tester.net/*"
       ],
       "js": ["content.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["*://*.hardwaretester.com/*", "*://*.gamepad-tester.com/*", "*://gamepad-tester.net/*"]
     }
   ]
 }
