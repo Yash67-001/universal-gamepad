@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 static CGPoint s_mousePos = { 600.0f, 400.0f };
 static bool s_isLeftMouseDown = false;
@@ -73,10 +74,14 @@ int main() {
                     btn = kCGMouseButtonLeft;
                 }
                 
-                CGEventRef ev = CGEventCreateMouseEvent(NULL, moveType, s_mousePos, btn);
+                CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                CGEventRef ev = CGEventCreateMouseEvent(source, moveType, s_mousePos, btn);
                 if (ev) {
                     CGEventPost(kCGHIDEventTap, ev);
                     CFRelease(ev);
+                }
+                if (source) {
+                    CFRelease(source);
                 }
             }
         } else if (strcmp(cmd, "MOUSEDOWN") == 0 || strcmp(cmd, "MOUSEUP") == 0) {
@@ -103,10 +108,47 @@ int main() {
                     btn = kCGMouseButtonLeft;
                 }
                 
-                CGEventRef ev = CGEventCreateMouseEvent(NULL, type, s_mousePos, btn);
+                CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                CGEventRef ev = CGEventCreateMouseEvent(source, type, s_mousePos, btn);
                 if (ev) {
+                    CGEventSetIntegerValueField(ev, kCGMouseEventClickState, 1);
                     CGEventPost(kCGHIDEventTap, ev);
                     CFRelease(ev);
+                }
+                if (source) {
+                    CFRelease(source);
+                }
+            }
+        } else if (strcmp(cmd, "MOUSECLICK") == 0) {
+            int code = 0;
+            if (sscanf(line, "%*s %d", &code) == 1) {
+                bool isRight = (code == 1);
+                syncWithSystemMouse();
+                
+                CGMouseButton btn = isRight ? kCGMouseButtonRight : kCGMouseButtonLeft;
+                CGEventType downType = isRight ? kCGEventRightMouseDown : kCGEventLeftMouseDown;
+                CGEventType upType = isRight ? kCGEventRightMouseUp : kCGEventLeftMouseUp;
+                
+                CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                
+                CGEventRef downEv = CGEventCreateMouseEvent(source, downType, s_mousePos, btn);
+                if (downEv) {
+                    CGEventSetIntegerValueField(downEv, kCGMouseEventClickState, 1);
+                    CGEventPost(kCGHIDEventTap, downEv);
+                    CFRelease(downEv);
+                }
+                
+                usleep(25000); // 25ms clean click hold
+                
+                CGEventRef upEv = CGEventCreateMouseEvent(source, upType, s_mousePos, btn);
+                if (upEv) {
+                    CGEventSetIntegerValueField(upEv, kCGMouseEventClickState, 1);
+                    CGEventPost(kCGHIDEventTap, upEv);
+                    CFRelease(upEv);
+                }
+                
+                if (source) {
+                    CFRelease(source);
                 }
             }
         } else if (strcmp(cmd, "MOUSESCROLL") == 0) {
@@ -122,10 +164,14 @@ int main() {
             int code = 0;
             if (sscanf(line, "%*s %d", &code) == 1) {
                 bool down = (strcmp(cmd, "KEYDOWN") == 0);
-                CGEventRef ev = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)code, down);
+                CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+                CGEventRef ev = CGEventCreateKeyboardEvent(source, (CGKeyCode)code, down);
                 if (ev) {
                     CGEventPost(kCGHIDEventTap, ev);
                     CFRelease(ev);
+                }
+                if (source) {
+                    CFRelease(source);
                 }
             }
         } else if (strncmp(cmd, "PING", 4) == 0) {

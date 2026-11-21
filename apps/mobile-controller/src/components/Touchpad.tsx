@@ -27,6 +27,7 @@ export const Touchpad: React.FC<TouchpadProps> = ({
   const totalTravel = useRef<number>(0);
   const lastHapticDist = useRef<number>(0);
   const activePointerId = useRef<number | null>(null);
+  const touchFingerCount = useRef<number>(1);
 
   const [isHovered, setIsHovered] = useState(false);
   const [leftClickDown, setLeftClickDown] = useState(false);
@@ -115,16 +116,26 @@ export const Touchpad: React.FC<TouchpadProps> = ({
       reticleRef.current.style.opacity = '0';
     }
 
-    // Tap-to-Click detection: if finger tapped for < 280ms and moved < 12px
+    // Tap-to-Click detection: if finger tapped for < 320ms and moved < 18px
     const duration = Date.now() - pointerStartTime.current;
-    if (duration < 280 && totalTravel.current < 12) {
-      triggerHaptic('heavy', 1.0, isIOS);
-      onMouseClick('left', true);
-      setTimeout(() => onMouseClick('left', false), 60);
-      setTelemetry('LEFT TAP // CLICK');
+    if (duration < 320 && totalTravel.current < 18) {
+      if (touchFingerCount.current >= 2) {
+        // Two-Finger Tap -> Right Click!
+        triggerHaptic('heavy', 1.0, isIOS);
+        onMouseClick('right', true);
+        setTimeout(() => onMouseClick('right', false), 40);
+        setTelemetry('2-FINGER // RIGHT CLICK');
+      } else {
+        // One-Finger Tap -> Left Click!
+        triggerHaptic('heavy', 1.0, isIOS);
+        onMouseClick('left', true);
+        setTimeout(() => onMouseClick('left', false), 40);
+        setTelemetry('LEFT TAP // CLICK');
+      }
     } else {
       setTelemetry('AIM // IDLE');
     }
+    touchFingerCount.current = 1;
   };
 
   // Pointer Event Handlers
@@ -145,6 +156,7 @@ export const Touchpad: React.FC<TouchpadProps> = ({
 
   // Direct Touch Event Handlers (High-priority on iOS Safari to bypass browser gesture cancellations)
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    touchFingerCount.current = e.touches.length;
     if (e.touches.length > 0) {
       const t = e.touches[0];
       onStartInteraction(t.clientX, t.clientY);
@@ -153,6 +165,9 @@ export const Touchpad: React.FC<TouchpadProps> = ({
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.cancelable) e.preventDefault();
+    if (e.touches.length > touchFingerCount.current) {
+      touchFingerCount.current = e.touches.length;
+    }
     if (e.touches.length > 0) {
       const t = e.touches[0];
       onMoveInteraction(t.clientX, t.clientY);
@@ -281,6 +296,9 @@ export const Touchpad: React.FC<TouchpadProps> = ({
           onPointerDown={handleLeftDown}
           onPointerUp={handleLeftUp}
           onPointerCancel={handleLeftUp}
+          onTouchStart={(e) => { e.preventDefault(); handleLeftDown(e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleLeftUp(e); }}
+          onTouchCancel={(e) => { e.preventDefault(); handleLeftUp(e); }}
           className={`flex-1 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-black font-mono tracking-wider border-r border-slate-800 select-none touch-none transition-all ${
             leftClickDown
               ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 shadow-[0_0_15px_rgba(0,240,255,1)] scale-[0.98]'
@@ -297,6 +315,9 @@ export const Touchpad: React.FC<TouchpadProps> = ({
           onPointerDown={handleRightDown}
           onPointerUp={handleRightUp}
           onPointerCancel={handleRightUp}
+          onTouchStart={(e) => { e.preventDefault(); handleRightDown(e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleRightUp(e); }}
+          onTouchCancel={(e) => { e.preventDefault(); handleRightUp(e); }}
           className={`flex-1 py-1.5 flex items-center justify-center gap-1.5 text-[9px] font-black font-mono tracking-wider select-none touch-none transition-all ${
             rightClickDown
               ? 'bg-gradient-to-r from-fuchsia-400 to-fuchsia-500 text-white shadow-[0_0_15px_rgba(232,121,249,1)] scale-[0.98]'

@@ -219,6 +219,12 @@ export class InputEngine {
     }
   }
 
+  public triggerMouseClick(button: 'left' | 'right'): void {
+    if (!this.synthesizerProc?.stdin?.writable) return;
+    const btnCode = button === 'right' ? 1 : 0;
+    this.synthesizerProc.stdin.write(`MOUSECLICK ${btnCode}\n`);
+  }
+
   public moveMouseNative(dx: number, dy: number): void {
     if (!this.synthesizerProc?.stdin?.writable) return;
     this.synthesizerProc.stdin.write(`MOUSEMOVE ${dx.toFixed(1)} ${dy.toFixed(1)}\n`);
