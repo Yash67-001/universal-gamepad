@@ -5,6 +5,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { ControllerState, ControllerProfile } from '@universal-gamepad/shared-protocol';
 import { DEFAULT_PROFILES } from '@universal-gamepad/controller-core';
+import { MacOSVirtualGamepad } from './macosVirtualGamepad.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -63,6 +64,9 @@ export class InputEngine {
   constructor(profile: ControllerProfile = DEFAULT_PROFILES.xbox) {
     this.activeProfile = profile;
     this.initNativeSynthesizer();
+    if (os.platform() === 'darwin') {
+      MacOSVirtualGamepad.getInstance().start();
+    }
   }
 
   private initNativeSynthesizer(): void {
@@ -108,6 +112,11 @@ export class InputEngine {
   public processState(state: ControllerState): void {
     this.lastState = state;
     this.resetWatchdog();
+
+    // 0. NATIVE MACOS VIRTUAL GAMEPAD (Direct DriverKit feed)
+    if (os.platform() === 'darwin') {
+      MacOSVirtualGamepad.getInstance().sendState(state);
+    }
 
     // 1. STEERING / MOVEMENT X (Left Stick -> A/D, D-Pad -> ArrowLeft/Right)
     const steerLeft = state.axes.leftX < -0.22;
@@ -233,6 +242,9 @@ export class InputEngine {
   }
 
   public flushToNeutral(): void {
+    if (os.platform() === 'darwin') {
+      MacOSVirtualGamepad.getInstance().flushToNeutral();
+    }
     if (this.synthesizerProc?.stdin?.writable) {
       for (const code of this.downKeyCodes) {
         this.synthesizerProc.stdin.write(`KEYUP ${code}\n`);

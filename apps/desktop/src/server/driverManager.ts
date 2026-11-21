@@ -50,7 +50,25 @@ export class DriverManager {
     }
 
     if (platform === 'darwin') {
-      // On macOS, Mode B is the sanctioned path without custom Apple-entitled DriverKit DEXT
+      let isOjdAvailable = false;
+      try {
+        const out = execSync('which ojd', { stdio: 'pipe' }).toString().trim();
+        isOjdAvailable = Boolean(out) || fs.existsSync('/Applications/OpenJoystickDriver.app');
+      } catch {
+        isOjdAvailable = fs.existsSync('/Applications/OpenJoystickDriver.app');
+      }
+
+      if (isOjdAvailable) {
+        return {
+          platform: 'darwin',
+          mode: 'mode_a_virtual_gamepad',
+          isDriverInstalled: true,
+          driverName: 'OpenJoystickDriver (Native macOS Virtual Gamepad DEXT)',
+          permissionGranted: true,
+          statusMessage: 'Mode A active. Native Xbox Wireless Controller published to macOS GameController framework.',
+        };
+      }
+
       return {
         platform: 'darwin',
         mode: 'mode_b_input_synthesis',
