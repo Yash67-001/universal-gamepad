@@ -1,0 +1,43 @@
+{
+  "name": "universal-gamepad",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Universal Gamepad - Turn every smartphone into a wireless gaming controller",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "start": "tsx apps/desktop/src/server/index.ts",
+    "dev:host": "tsx apps/desktop/src/server/index.ts",
+    "dev:mobile": "npm run dev --workspace=apps/mobile-controller",
+    "dev:desktop": "npm run dev --workspace=apps/desktop",
+    "build:packages": "npx tsc -p packages/shared-protocol && npx tsc -p packages/controller-core",
+    "build:native": "clang -O3 -framework ApplicationServices -o native/macos/mac_input_synthesizer native/macos/mac_input_synthesizer.c",
+    "build:mobile": "npm run build --workspace=apps/mobile-controller",
+    "build:desktop": "npm run build --workspace=apps/desktop",
+    "build": "npm run build:packages && npm run build:native && npm run build:mobile && npm run build:desktop",
+    "test:unit": "tsx tests/unit/protocol.test.ts",
+    "test:integration": "tsx tests/integration/server-gamepad.test.ts && tsx tests/integration/http-serving.test.ts && tsx tests/integration/transports.test.ts",
+    "test": "npm run test:unit && npm run test:integration",
+    "open:ios": "cd apps/mobile-controller && npx cap sync ios && open ios/App/App.xcodeproj"
+  },
+  "keywords": [
+    "gamepad",
+    "controller",
+    "virtual-gamepad",
+    "ios",
+    "android",
+    "windows",
+    "macos",
+    "hid",
+    "websocket"
+  ],
+  "author": "Universal Gamepad Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5"
+  }
+}

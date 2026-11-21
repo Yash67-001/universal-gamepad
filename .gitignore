@@ -1,0 +1,50 @@
+# Node & Workspace Dependencies
+node_modules/
+apps/*/node_modules/
+packages/*/node_modules/
+.pnp
+.pnp.js
+
+# Production & Build Outputs
+dist/
+apps/*/dist/
+packages/*/dist/
+build/Release/
+
+# Native Binaries (Rebuildable via npm run build:native)
+native/macos/mac_input_synthesizer
+native/macos/*.o
+
+# Logs & Diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Credentials
+.env
+.env.local
+.env.*.local
+
+# Operating System & IDE metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Mobile Native Platform Caches & Derived Data
+apps/mobile-controller/ios/App/Pods/
+apps/mobile-controller/ios/App/DerivedData/
+apps/mobile-controller/ios/App/build/
+apps/mobile-controller/android/build/
+apps/mobile-controller/android/app/build/
+apps/mobile-controller/android/.gradle/
+apps/mobile-controller/android/local.properties
+apps/mobile-controller/android/.idea/
