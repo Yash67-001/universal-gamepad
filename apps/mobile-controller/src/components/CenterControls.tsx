@@ -145,7 +145,7 @@ export const CenterControls: React.FC<CenterControlsProps> = ({
           }`}
         >
           <MousePointer className="w-2.5 h-2.5 text-cyan-400" />
-          <span>{isTouchpadOpen ? 'CLOSE PAD' : '⌨ TOUCHPAD'}</span>
+          <span>{isTouchpadOpen ? 'CLOSE PAD' : '🖱️ MOUSE PAD'}</span>
         </button>
       )}
     </div>

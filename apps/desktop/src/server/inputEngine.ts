@@ -43,6 +43,10 @@ export const MACOS_KEY_CODES: Record<string, number> = {
   KeyX: 7,
   KeyV: 9,
   KeyB: 11,
+  KeyI: 34,
+  KeyJ: 38,
+  KeyK: 40,
+  KeyL: 37,
 };
 
 export class InputEngine {
@@ -105,67 +109,58 @@ export class InputEngine {
     this.lastState = state;
     this.resetWatchdog();
 
-    // 1. STEERING (Left / Right) -> ArrowLeft/Right + A/D
-    const steerLeft = state.axes.leftX < -0.22 || state.buttons.dpadLeft;
-    const steerRight = state.axes.leftX > 0.22 || state.buttons.dpadRight;
+    // 1. STEERING / MOVEMENT X (Left Stick -> A/D, D-Pad -> ArrowLeft/Right)
+    const steerLeft = state.axes.leftX < -0.22;
+    const steerRight = state.axes.leftX > 0.22;
 
-    this.syncKey('ArrowLeft', steerLeft);
     this.syncKey('KeyA', steerLeft);
-    this.syncKey('ArrowRight', steerRight);
     this.syncKey('KeyD', steerRight);
+    this.syncKey('ArrowLeft', state.buttons.dpadLeft);
+    this.syncKey('ArrowRight', state.buttons.dpadRight);
 
-    // 2. THROTTLE / GAS / ACCELERATE -> ArrowUp + KeyW
-    // Trigger R2 (analog pull) OR Button A OR Left Stick Up OR DPad Up
-    const throttle =
-      state.triggers.r2 > 0.12 ||
-      state.buttons.a ||
-      state.axes.leftY > 0.22 ||
-      state.buttons.dpadUp;
+    // 2. THROTTLE / GAS / MOVEMENT Y (Left Stick & Triggers)
+    const throttle = state.triggers.r2 > 0.12 || state.buttons.a || state.axes.leftY > 0.22;
+    const brake = state.triggers.l2 > 0.12 || state.buttons.b || state.axes.leftY < -0.22;
 
-    this.syncKey('ArrowUp', throttle);
     this.syncKey('KeyW', throttle);
-
-    // 3. BRAKE / REVERSE -> ArrowDown + KeyS
-    // Trigger L2 (analog pull) OR Button B OR Left Stick Down OR DPad Down
-    const brake =
-      state.triggers.l2 > 0.12 ||
-      state.buttons.b ||
-      state.axes.leftY < -0.22 ||
-      state.buttons.dpadDown;
-
-    this.syncKey('ArrowDown', brake);
     this.syncKey('KeyS', brake);
+    this.syncKey('ArrowUp', state.buttons.dpadUp);
+    this.syncKey('ArrowDown', state.buttons.dpadDown);
 
-    // 4. NITRO / BOOST / DRIFT -> Shift (Left)
-    // Button X OR Bumpers (L1/R1)
+    // 3. NITRO / BOOST / DRIFT -> Shift (Left)
     const nitro = state.buttons.x || state.buttons.r1 || state.buttons.l1;
     this.syncKey('ShiftLeft', nitro);
 
-    // 5. CAMERA TOGGLE -> Key C
-    // Button Y
-    this.syncKey('KeyC', state.buttons.y);
-
-    // 6. HANDBRAKE / JUMP / ACTION -> Space
-    // When Button A is tapped without R2 throttle, or explicit Space
+    // 4. ACTION / JUMP / HANDBRAKE -> Space
     const handbrake = state.buttons.a && state.triggers.r2 <= 0.12;
     this.syncKey('Space', handbrake);
 
-    // 7. PAUSE / RESUME / MENU -> Escape & Return
+    // 5. SECONDARY ACTION -> Key C
+    this.syncKey('KeyC', state.buttons.y);
+
+    // 6. PAUSE / RESUME / MENU -> Escape & Return
     this.syncKey('Escape', state.buttons.start);
     this.syncKey('Return', state.buttons.start);
 
-    // 8. SELECT / BACK -> Tab
+    // 7. SELECT / BACK -> Tab
     this.syncKey('Tab', state.buttons.select);
 
-    // 9. MOUSE NAVIGATION (Right stick controls cursor so user can click "Resume" in menus!)
-    if (Math.hypot(state.axes.rightX, state.axes.rightY) > 0.15) {
-      const dx = state.axes.rightX * 14;
-      const dy = -state.axes.rightY * 14; // Invert Y for screen coordinates
-      this.moveMouseNative(dx, dy);
-    }
+    // 8. RIGHT STICK (CAMERA / LOOK / REAL CONTROLLER AXES)
+    // Works like a true gamepad analog stick (Arrow keys / IJKL when deflected).
+    // Mouse cursor is NEVER hijacked by Right Stick — mouse is 100% reserved for Touchpad!
+    const rsLeft = state.axes.rightX < -0.25;
+    const rsRight = state.axes.rightX > 0.25;
+    const rsUp = state.axes.rightY > 0.25;
+    const rsDown = state.axes.rightY < -0.25;
 
-    // Right stick click (R3) or Left stick click (L3) triggers left mouse click
-    this.setMouseNative(state.buttons.r3 || state.buttons.l3);
+    this.syncKey('KeyJ', rsLeft);
+    this.syncKey('KeyL', rsRight);
+    this.syncKey('KeyI', rsUp);
+    this.syncKey('KeyK', rsDown);
+
+    // 9. STICK CLICKS (L3 & R3) -> Real controller buttons
+    this.syncKey('KeyC', state.buttons.l3); // L3 = Crouch / Horn
+    this.syncKey('KeyV', state.buttons.r3); // R3 = Melee / Look-Back / Special Action
   }
 
   private syncKey(keyName: string, isPressed: boolean): void {
