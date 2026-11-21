@@ -28,6 +28,7 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
   const hudRef = useRef<HTMLDivElement>(null);
 
   const activePointerId = useRef<number | null>(null);
+  const activeTouchId = useRef<number | null>(null);
   const centerPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isPressed, setIsPressed] = useState(false);
   const [isStickClicked, setIsStickClicked] = useState(false);
@@ -37,6 +38,7 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
 
   const resetStick = useCallback(() => {
     activePointerId.current = null;
+    activeTouchId.current = null;
     if (knobRef.current) {
       knobRef.current.style.transform = 'translate3d(0px, 0px, 0)';
     }
@@ -51,10 +53,43 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
     onMove(0, 0);
   }, [onMove, size]);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current !== null) return;
-    activePointerId.current = e.pointerId;
-    e.currentTarget.setPointerCapture(e.pointerId);
+  const updatePosition = useCallback(
+    (clientX: number, clientY: number) => {
+      const deltaX = clientX - centerPos.current.x;
+      const deltaY = clientY - centerPos.current.y;
+
+      const rawNormalized = touchOffsetToNormalized(deltaX, deltaY, maxRadius);
+      const finalPoint = applyRadialDeadzone(rawNormalized.x, rawNormalized.y, config);
+
+      // Visual knob offset clamped to max boundary
+      const visualDist = Math.hypot(deltaX, deltaY);
+      const clampedDist = Math.min(maxRadius - knobRadius * 0.45, visualDist);
+      const angle = Math.atan2(deltaY, deltaX);
+      const kX = Math.cos(angle) * clampedDist;
+      const kY = Math.sin(angle) * clampedDist;
+
+      // DIRECT GPU DOM UPDATE (Zero React re-render bottleneck at 120Hz!)
+      if (knobRef.current) {
+        knobRef.current.style.transform = `translate3d(${kX}px, ${kY}px, 0)`;
+      }
+      if (lineRef.current) {
+        lineRef.current.setAttribute('x2', (size / 2 + kX).toString());
+        lineRef.current.setAttribute('y2', (size / 2 + kY).toString());
+      }
+      if (hudRef.current) {
+        const deg = Math.round(((angle * 180) / Math.PI + 360) % 360);
+        const mag = Math.min(100, Math.round((clampedDist / (maxRadius - knobRadius * 0.45)) * 100));
+        hudRef.current.textContent = `${deg}° • ${mag}%`;
+      }
+
+      onMove(finalPoint.x, finalPoint.y);
+    },
+    [config, maxRadius, knobRadius, onMove, size]
+  );
+
+  const startTracking = (clientX: number, clientY: number, pointerId?: number, touchId?: number) => {
+    if (pointerId !== undefined) activePointerId.current = pointerId;
+    if (touchId !== undefined) activeTouchId.current = touchId;
 
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
@@ -65,50 +100,70 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
     }
 
     setIsPressed(true);
-    handlePointerMove(e);
+    updatePosition(clientX, clientY);
+  };
+
+  // Pointer Event Handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // If touch was already registered, let touch handler lead
+    if (activeTouchId.current !== null) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    startTracking(e.clientX, e.clientY, e.pointerId, undefined);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current !== e.pointerId) return;
-
-    const deltaX = e.clientX - centerPos.current.x;
-    const deltaY = e.clientY - centerPos.current.y;
-
-    const rawNormalized = touchOffsetToNormalized(deltaX, deltaY, maxRadius);
-    const finalPoint = applyRadialDeadzone(rawNormalized.x, rawNormalized.y, config);
-
-    // Visual knob offset clamped to max boundary
-    const visualDist = Math.hypot(deltaX, deltaY);
-    const clampedDist = Math.min(maxRadius - knobRadius * 0.45, visualDist);
-    const angle = Math.atan2(deltaY, deltaX);
-    const kX = Math.cos(angle) * clampedDist;
-    const kY = Math.sin(angle) * clampedDist;
-
-    // DIRECT GPU DOM UPDATE (Zero React re-render bottleneck at 120Hz!)
-    if (knobRef.current) {
-      knobRef.current.style.transform = `translate3d(${kX}px, ${kY}px, 0)`;
+    if (activePointerId.current !== null && activePointerId.current === e.pointerId) {
+      updatePosition(e.clientX, e.clientY);
     }
-    if (lineRef.current) {
-      lineRef.current.setAttribute('x2', (size / 2 + kX).toString());
-      lineRef.current.setAttribute('y2', (size / 2 + kY).toString());
-    }
-    if (hudRef.current) {
-      const deg = Math.round(((angle * 180) / Math.PI + 360) % 360);
-      const mag = Math.min(100, Math.round((clampedDist / (maxRadius - knobRadius * 0.45)) * 100));
-      hudRef.current.textContent = `${deg}° • ${mag}%`;
-    }
-
-    onMove(finalPoint.x, finalPoint.y);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current === e.pointerId) {
+    if (activePointerId.current === e.pointerId || activePointerId.current === null) {
       resetStick();
     }
   };
 
-  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current === e.pointerId) {
+  // Touch Event Handlers (Native multi-touch on iOS Safari and Android Chrome)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.changedTouches.length === 0) return;
+    const touch = e.changedTouches[0];
+    startTracking(touch.clientX, touch.clientY, undefined, touch.identifier);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.cancelable) e.preventDefault();
+    if (activeTouchId.current === null) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === activeTouchId.current) {
+        updatePosition(e.touches[i].clientX, e.touches[i].clientY);
+        return;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (activeTouchId.current === null) {
+      resetStick();
+      return;
+    }
+    // Check if our touch finished
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === activeTouchId.current) {
+        resetStick();
+        return;
+      }
+    }
+    // Or if our touch is no longer in touches list
+    let stillPresent = false;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === activeTouchId.current) {
+        stillPresent = true;
+        break;
+      }
+    }
+    if (!stillPresent) {
       resetStick();
     }
   };
@@ -121,13 +176,78 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
     onClickToggle(next);
   };
 
+  // Global Multi-layer Window & Document Failsafes
   useEffect(() => {
-    const handleGlobalCancel = () => resetStick();
-    window.addEventListener('blur', handleGlobalCancel);
-    document.addEventListener('visibilitychange', handleGlobalCancel);
+    const handleGlobalPointerRelease = (e: PointerEvent) => {
+      if (activePointerId.current === e.pointerId || activePointerId.current === null) {
+        resetStick();
+      }
+    };
+
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      // 1. If no touches remain on screen, always snap to center
+      if (e.touches.length === 0) {
+        resetStick();
+        return;
+      }
+
+      // 2. If this stick has an active touch, check if it's still alive
+      if (activeTouchId.current !== null) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === activeTouchId.current) {
+            resetStick();
+            return;
+          }
+        }
+        let found = false;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === activeTouchId.current) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          resetStick();
+        }
+      }
+    };
+
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      // Self-healing check: if stick is deflected but active touch ID is missing from active touches, auto-heal!
+      if (activeTouchId.current !== null) {
+        let found = false;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === activeTouchId.current) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          resetStick();
+        }
+      }
+    };
+
+    const handleWindowBlur = () => resetStick();
+
+    window.addEventListener('pointerup', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('pointercancel', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('contextmenu', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleWindowBlur);
+
     return () => {
-      window.removeEventListener('blur', handleGlobalCancel);
-      document.removeEventListener('visibilitychange', handleGlobalCancel);
+      window.removeEventListener('pointerup', handleGlobalPointerRelease);
+      window.removeEventListener('pointercancel', handleGlobalPointerRelease);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('contextmenu', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleWindowBlur);
     };
   }, [resetStick]);
 
@@ -142,7 +262,11 @@ export const AnalogJoystick: React.FC<AnalogJoystickProps> = ({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
+        onPointerCancel={handlePointerUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         style={{ width: `${size}px`, height: `${size}px` }}
         className={`relative rounded-full transition-colors duration-150 touch-none flex items-center justify-center p-1.5 knurled-edge ${
           isPressed

@@ -110,9 +110,22 @@ export const TriggerBar: React.FC<TriggerBarProps> = ({
   }, [onBumperChange, onTriggerChange]);
 
   useEffect(() => {
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        resetAll();
+      }
+    };
+    window.addEventListener('pointerup', resetAll, { passive: true });
+    window.addEventListener('pointercancel', resetAll, { passive: true });
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: true });
     window.addEventListener('blur', resetAll);
     document.addEventListener('visibilitychange', resetAll);
     return () => {
+      window.removeEventListener('pointerup', resetAll);
+      window.removeEventListener('pointercancel', resetAll);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
       window.removeEventListener('blur', resetAll);
       document.removeEventListener('visibilitychange', resetAll);
     };

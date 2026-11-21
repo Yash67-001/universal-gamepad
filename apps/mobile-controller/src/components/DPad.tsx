@@ -10,6 +10,7 @@ interface DPadProps {
 export const DPad: React.FC<DPadProps> = ({ onDirectionChange, size = 155, isIOS = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const activePointerId = useRef<number | null>(null);
+  const activeTouchId = useRef<number | null>(null);
   const [activeDirs, setActiveDirs] = useState({ up: false, down: false, left: false, right: false });
 
   const updateDirectionsFromPoint = useCallback(
@@ -48,15 +49,18 @@ export const DPad: React.FC<DPadProps> = ({ onDirectionChange, size = 155, isIOS
 
   const resetDPad = useCallback(() => {
     activePointerId.current = null;
+    activeTouchId.current = null;
     const none = { up: false, down: false, left: false, right: false };
     setActiveDirs(none);
     onDirectionChange(none);
   }, [onDirectionChange]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current !== null) return;
+    if (activeTouchId.current !== null) return;
     activePointerId.current = e.pointerId;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
     triggerHaptic(15, 0.8, isIOS);
     updateDirectionsFromPoint(e.clientX, e.clientY);
   };
@@ -68,24 +72,119 @@ export const DPad: React.FC<DPadProps> = ({ onDirectionChange, size = 155, isIOS
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current === e.pointerId) {
+    if (activePointerId.current === e.pointerId || activePointerId.current === null) {
       resetDPad();
     }
   };
 
-  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current === e.pointerId) {
+  // Touch Event Handlers for iOS Safari multi-touch
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.changedTouches.length === 0) return;
+    const touch = e.changedTouches[0];
+    activeTouchId.current = touch.identifier;
+    triggerHaptic(15, 0.8, isIOS);
+    updateDirectionsFromPoint(touch.clientX, touch.clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.cancelable) e.preventDefault();
+    if (activeTouchId.current === null) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === activeTouchId.current) {
+        updateDirectionsFromPoint(e.touches[i].clientX, e.touches[i].clientY);
+        return;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (activeTouchId.current === null) {
+      resetDPad();
+      return;
+    }
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === activeTouchId.current) {
+        resetDPad();
+        return;
+      }
+    }
+    let found = false;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === activeTouchId.current) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
       resetDPad();
     }
   };
 
   useEffect(() => {
-    const handleGlobalCancel = () => resetDPad();
-    window.addEventListener('blur', handleGlobalCancel);
-    document.addEventListener('visibilitychange', handleGlobalCancel);
+    const handleGlobalPointerRelease = (e: PointerEvent) => {
+      if (activePointerId.current === e.pointerId || activePointerId.current === null) {
+        resetDPad();
+      }
+    };
+
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        resetDPad();
+        return;
+      }
+      if (activeTouchId.current !== null) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === activeTouchId.current) {
+            resetDPad();
+            return;
+          }
+        }
+        let found = false;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === activeTouchId.current) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          resetDPad();
+        }
+      }
+    };
+
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (activeTouchId.current !== null) {
+        let found = false;
+        for (let i = 0; i < e.touches.length; i++) {
+          if (e.touches[i].identifier === activeTouchId.current) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          resetDPad();
+        }
+      }
+    };
+
+    const handleCancel = () => resetDPad();
+
+    window.addEventListener('pointerup', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('pointercancel', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
+    window.addEventListener('blur', handleCancel);
+    document.addEventListener('visibilitychange', handleCancel);
+
     return () => {
-      window.removeEventListener('blur', handleGlobalCancel);
-      document.removeEventListener('visibilitychange', handleGlobalCancel);
+      window.removeEventListener('pointerup', handleGlobalPointerRelease);
+      window.removeEventListener('pointercancel', handleGlobalPointerRelease);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
+      window.removeEventListener('blur', handleCancel);
+      document.removeEventListener('visibilitychange', handleCancel);
     };
   }, [resetDPad]);
 
@@ -97,7 +196,11 @@ export const DPad: React.FC<DPadProps> = ({ onDirectionChange, size = 155, isIOS
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
+      onPointerCancel={handlePointerUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       style={{ width: `${size}px`, height: `${size}px` }}
       className="relative select-none touch-none flex items-center justify-center p-1 shrink-0"
     >

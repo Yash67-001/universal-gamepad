@@ -29,33 +29,68 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
     y: null,
   });
 
-  const handlePointerDown = (buttonKey: 'a' | 'b' | 'x' | 'y', e: React.PointerEvent<HTMLButtonElement>) => {
-    buttonPointers.current[buttonKey] = e.pointerId;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    triggerHaptic(18, 0.9, isIOS);
+  const buttonTouches = useRef<{ [key: string]: number | null }>({
+    a: null,
+    b: null,
+    x: null,
+    y: null,
+  });
 
-    setPressed((prev) => ({ ...prev, [buttonKey]: true }));
-    onButtonChange(buttonKey, true);
+  const releaseButton = useCallback(
+    (buttonKey: 'a' | 'b' | 'x' | 'y') => {
+      buttonPointers.current[buttonKey] = null;
+      buttonTouches.current[buttonKey] = null;
+      setPressed((prev) => {
+        if (!prev[buttonKey]) return prev;
+        return { ...prev, [buttonKey]: false };
+      });
+      onButtonChange(buttonKey, false);
+    },
+    [onButtonChange]
+  );
+
+  const pressButton = useCallback(
+    (buttonKey: 'a' | 'b' | 'x' | 'y', pointerId?: number, touchId?: number) => {
+      if (pointerId !== undefined) buttonPointers.current[buttonKey] = pointerId;
+      if (touchId !== undefined) buttonTouches.current[buttonKey] = touchId;
+      triggerHaptic(18, 0.9, isIOS);
+
+      setPressed((prev) => {
+        if (prev[buttonKey]) return prev;
+        return { ...prev, [buttonKey]: true };
+      });
+      onButtonChange(buttonKey, true);
+    },
+    [isIOS, onButtonChange]
+  );
+
+  const handlePointerDown = (buttonKey: 'a' | 'b' | 'x' | 'y', e: React.PointerEvent<HTMLButtonElement>) => {
+    if (buttonTouches.current[buttonKey] !== null) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    pressButton(buttonKey, e.pointerId, undefined);
   };
 
   const handlePointerUp = (buttonKey: 'a' | 'b' | 'x' | 'y', e: React.PointerEvent<HTMLButtonElement>) => {
-    if (buttonPointers.current[buttonKey] === e.pointerId) {
-      buttonPointers.current[buttonKey] = null;
-      setPressed((prev) => ({ ...prev, [buttonKey]: false }));
-      onButtonChange(buttonKey, false);
+    if (buttonPointers.current[buttonKey] === e.pointerId || buttonPointers.current[buttonKey] === null) {
+      releaseButton(buttonKey);
     }
   };
 
-  const handlePointerCancel = (buttonKey: 'a' | 'b' | 'x' | 'y', e: React.PointerEvent<HTMLButtonElement>) => {
-    if (buttonPointers.current[buttonKey] === e.pointerId) {
-      buttonPointers.current[buttonKey] = null;
-      setPressed((prev) => ({ ...prev, [buttonKey]: false }));
-      onButtonChange(buttonKey, false);
-    }
+  const handleTouchStart = (buttonKey: 'a' | 'b' | 'x' | 'y', e: React.TouchEvent<HTMLButtonElement>) => {
+    if (e.changedTouches.length === 0) return;
+    const touch = e.changedTouches[0];
+    pressButton(buttonKey, undefined, touch.identifier);
+  };
+
+  const handleTouchEnd = (buttonKey: 'a' | 'b' | 'x' | 'y') => {
+    releaseButton(buttonKey);
   };
 
   const resetAll = useCallback(() => {
     buttonPointers.current = { a: null, b: null, x: null, y: null };
+    buttonTouches.current = { a: null, b: null, x: null, y: null };
     setPressed({ a: false, b: false, x: false, y: false });
     onButtonChange('a', false);
     onButtonChange('b', false);
@@ -64,13 +99,75 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   }, [onButtonChange]);
 
   useEffect(() => {
+    const handleGlobalPointerRelease = (e: PointerEvent) => {
+      const keys: Array<'a' | 'b' | 'x' | 'y'> = ['a', 'b', 'x', 'y'];
+      for (const k of keys) {
+        if (buttonPointers.current[k] === e.pointerId) {
+          releaseButton(k);
+        }
+      }
+    };
+
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        resetAll();
+        return;
+      }
+      const keys: Array<'a' | 'b' | 'x' | 'y'> = ['a', 'b', 'x', 'y'];
+      for (const k of keys) {
+        const tid = buttonTouches.current[k];
+        if (tid !== null) {
+          let found = false;
+          for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === tid) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            releaseButton(k);
+          }
+        }
+      }
+    };
+
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      const keys: Array<'a' | 'b' | 'x' | 'y'> = ['a', 'b', 'x', 'y'];
+      for (const k of keys) {
+        const tid = buttonTouches.current[k];
+        if (tid !== null) {
+          let found = false;
+          for (let i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === tid) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            releaseButton(k);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('pointercancel', handleGlobalPointerRelease, { passive: true });
+    window.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleGlobalTouchEnd, { passive: true });
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: true });
     window.addEventListener('blur', resetAll);
     document.addEventListener('visibilitychange', resetAll);
+
     return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerRelease);
+      window.removeEventListener('pointercancel', handleGlobalPointerRelease);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
       window.removeEventListener('blur', resetAll);
       document.removeEventListener('visibilitychange', resetAll);
     };
-  }, [resetAll]);
+  }, [releaseButton, resetAll]);
 
   // Labels, colors, and neon glows per profile
   const getLabels = () => {
@@ -368,7 +465,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           type="button"
           onPointerDown={(e) => handlePointerDown(item.key, e)}
           onPointerUp={(e) => handlePointerUp(item.key, e)}
-          onPointerCancel={(e) => handlePointerCancel(item.key, e)}
+          onPointerCancel={(e) => handlePointerUp(item.key, e)}
+          onTouchStart={(e) => handleTouchStart(item.key, e)}
+          onTouchEnd={() => handleTouchEnd(item.key)}
+          onTouchCancel={() => handleTouchEnd(item.key)}
           style={{ width: `${btnSize}px`, height: `${btnSize}px`, fontSize: `${dynamicFontSize}px` }}
           className={`relative rounded-full border-2 flex items-center justify-center select-none touch-none transition-all duration-75 overflow-hidden active:scale-90 ${
             isBtnPressed
