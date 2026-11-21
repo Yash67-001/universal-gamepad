@@ -19,7 +19,8 @@
     "build": "npm run build:packages && npm run build:native && npm run build:mobile && npm run build:desktop",
     "test:unit": "tsx tests/unit/protocol.test.ts",
     "test:integration": "tsx tests/integration/server-gamepad.test.ts && tsx tests/integration/http-serving.test.ts && tsx tests/integration/transports.test.ts",
-    "test": "npm run test:unit && npm run test:integration"
+    "test": "npm run test:unit && npm run test:integration",
+    "open:ios": "cd apps/mobile-controller && npx cap sync ios && open ios/App/App.xcodeproj"
   },
   "keywords": [
     "gamepad",
