@@ -38,6 +38,13 @@ universal-gamepad/
 
 ---
 
+## Live Demos & Links
+
+* 📱 **Live Mobile Controller:** [https://yash67-001.github.io/universal-gamepad/](https://yash67-001.github.io/universal-gamepad/)
+* 🖥️ **Live Computer Dashboard Preview:** [https://yash67-001.github.io/universal-gamepad/dashboard/](https://yash67-001.github.io/universal-gamepad/dashboard/)
+
+---
+
 ## Quickstart
 
 ### 1. Install & Build
@@ -46,15 +53,14 @@ npm install
 npm run build
 ```
 
-### 2. Run the Desktop Host
+### 2. Run the Desktop Host on PC or Mac
 ```bash
 npm start
 ```
+The terminal prints your live connection links and opens your local host:
+* **🖥️ Computer Dashboard (QR & Stats):** `http://localhost:8080/dashboard`
+* **📱 Phone Pairing URL:** `http://<your-ip>:8080/`
+* **🔑 4-Digit PIN:** Displayed on your screen
 
-### 3. Run All Unit & Integration Tests
-```bash
-npm test
-```
-
-### 4. Connect Phone
-Scan the QR code displayed in your terminal or dashboard with your phone's camera, rotate to landscape, and start gaming!
+### 3. Connect & Play
+Open the **Computer Dashboard** in your computer's browser (`http://localhost:8080/dashboard`). Scan the displayed QR code with your smartphone's camera, rotate to landscape, and start gaming!

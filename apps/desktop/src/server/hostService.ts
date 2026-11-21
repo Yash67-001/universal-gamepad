@@ -436,8 +436,9 @@ export class HostService {
       this.server.listen(this.port, '0.0.0.0', () => {
         console.log(`\n======================================================`);
         console.log(`🚀 UNIVERSAL GAMEPAD DESKTOP HOST RUNNING ON PORT ${this.port}`);
-        console.log(`   Pairing URL: ${this.pairingUrl}`);
-        console.log(`   Pairing PIN: ${this.sessionManager.getCurrentSession().pin}`);
+        console.log(`   🖥️  Computer Dashboard: http://localhost:${this.port}/dashboard`);
+        console.log(`   📱 Phone Pairing URL:   ${this.pairingUrl}`);
+        console.log(`   🔑 4-Digit Pairing PIN: ${this.sessionManager.getCurrentSession().pin}`);
         console.log(`======================================================\n`);
         resolve();
       });
